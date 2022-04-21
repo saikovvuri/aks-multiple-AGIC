@@ -3,17 +3,18 @@
 # Apps then installed to the namespaces that the AGIC is watching
 
 # Variables
-rg='aks'
-location='uaenorth'
+rg='aks-multi-agic'
+location='northcentralus'
 aks_vnet_name='aks'
 aks_vnet_address='10.0.0.0/8'
 aks_system_subnet_name='AksSubnet'
 aks_system_subnet_address='10.240.0.0/16'
 aks_vm_subnet_name='VMSubnet'
 aks_vm_subnet_address='10.2.0.0/24'
-aks_appgw1_subnet_name='AppGw2Subnet'
+aks_appgw1_subnet_name='AppGw1Subnet'
 aks_appgw1_subnet_address='10.2.1.0/24'
-aks_appgw2_subnet_name='AppGw1Subnet'
+appgw1_private_ip_address='10.2.1.4'
+aks_appgw2_subnet_name='AppGw2Subnet'
 aks_appgw2_subnet_address='10.2.2.0/24'
 aks_name='akscluster'
 aks_jump_vm_name='jump'
@@ -45,12 +46,12 @@ az network vnet subnet create -g $rg -n $aks_vm_subnet_name --address-prefixes $
 az network vnet subnet create -g $rg -n $aks_appgw1_subnet_name --address-prefixes $aks_appgw1_subnet_address --vnet-name $aks_vnet_name -o none
 az network vnet subnet create -g $rg -n $aks_appgw2_subnet_name --address-prefixes $aks_appgw2_subnet_address --vnet-name $aks_vnet_name -o none
 
-# app gw1
+# app gw1 - public and private ip
 appgw1_name="appgw1"
 echo -e "\e[1;36mCreating Application Gateway $appgw1_name....\e[0m"
 az network public-ip create -g $rg -n $appgw1_name-pubip --allocation-method Static --sku Standard -o none
-az network application-gateway create -n $appgw1_name -g $rg --public-ip-address $appgw1_name-pubip --sku Standard_v2 --vnet-name $aks_vnet_name --subnet $aks_appgw1_subnet_name --no-wait
-# app gw2
+az network application-gateway create -n $appgw1_name -g $rg --public-ip-address $appgw1_name-pubip --private-ip-address $appgw1_private_ip_address --sku Standard_v2 --vnet-name $aks_vnet_name --subnet $aks_appgw1_subnet_name --no-wait
+# app gw2 - public only
 appgw2_name="appgw2"
 echo -e "\e[1;36mCreating Application Gateway $appgw2_name....\e[0m"
 az network public-ip create -g $rg -n $appgw2_name-pubip --allocation-method Static --sku Standard -o none
@@ -78,7 +79,7 @@ appgw:
     subscriptionId: <subscriptionId>
     resourceGroup: <resourceGroupName>
     name: <applicationGatewayName>
-    usePrivateIP: false
+    usePrivateIP: true
     shared: false
 
 kubernetes:
@@ -100,7 +101,32 @@ EOF
 
 # Helm AGIC2 Configuration file
 helm_agic2_config_file=~/helm-agic2-config.yaml
-cat $helm_agic1_config_file >$helm_agic2_config_file
+cat <<EOF > $helm_agic2_config_file
+verbosityLevel: 3
+
+appgw:
+    subscriptionId: <subscriptionId>
+    resourceGroup: <resourceGroupName>
+    name: <applicationGatewayName>
+    usePrivateIP: false
+    shared: false
+
+kubernetes:
+  watchNamespace: <namespace>
+  ingressClassResource:
+    name: <agic>
+    enabled: true
+    default: false
+    controllerValue: "azure/application-gateway"
+
+armAuth:
+    type: aadPodIdentity
+    identityResourceID: <identityResourceId>
+    identityClientID:  <identityClientId>
+
+rbac:
+    enabled: false # true/false
+EOF
 
 echo -e "\e[1;36mCreating Pod Identity....\e[0m"
 mgmt_idntity_name=agic-pod-identity
