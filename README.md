@@ -8,4 +8,5 @@ AKS with configured with two Application Gateway Ingress Controllers (AGIC) - 1 
 export subscriptionId=$(az acccount show --query id --output tsv)
 ./aks-2agic-helm.azcli
 
+## Architecture
 ![aks-multiple-agic.PNG](/aks-multiple-agic.PNG)
