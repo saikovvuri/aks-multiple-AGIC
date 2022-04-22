@@ -4,7 +4,7 @@ AKS with configured with two Application Gateway Ingress Controllers (AGIC) - 1 
 ## Provision azure resources
 
 ```bash
-export subscriptionId=$(az acccount show --query id --output tsv)
+export subscriptionId=$(az account show --query id --output tsv)
 ./aks-2agic-helm.azcli
 
 ```
